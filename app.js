@@ -124,24 +124,37 @@ window.addEventListener("DOMContentLoaded", () => {
       for (let j = 0; j < pins.length; j++) {
         if (j === prevIndex) continue;
 
+        // Clear hidden canvas and draw current best lines + candidate line
+        hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+        hiddenCtx.putImageData(originalImage, 0, 0); // reset to original (for error calc)
+
+        // Draw all previous lines on hidden canvas with black lines (alpha to simulate thread)
         hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.fillStyle = "white";
         hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.strokeStyle = "black";
         hiddenCtx.lineWidth = 1;
         hiddenCtx.beginPath();
+        let cx = outputCanvas.width / 2;
+        let cy = outputCanvas.height / 2;
 
+        // Draw all existing lines
+        ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+        drawPins();
         lines.forEach(([from, to]) => {
           const [x1, y1] = pins[from];
           const [x2, y2] = pins[to];
+          drawLine(x1, y1, x2, y2);
           hiddenCtx.moveTo(x1, y1);
           hiddenCtx.lineTo(x2, y2);
         });
 
+        // Add candidate line to hidden context
         hiddenCtx.moveTo(...pins[prevIndex]);
         hiddenCtx.lineTo(...pins[j]);
         hiddenCtx.stroke();
 
+        // Get grayscale data from hidden canvas to compute new error
         const sim = copyCanvasData(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
         const newError = calculateError(targetGray, sim);
         const delta = bestError - newError;
@@ -153,6 +166,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       if (bestLine !== null) {
+        // Draw best line on output canvas
         drawLine(...pins[prevIndex], ...pins[bestLine]);
         lines.push([prevIndex, bestLine]);
         prevIndex = bestLine;
