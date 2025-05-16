@@ -16,17 +16,21 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const reader = new FileReader();
     reader.onload = function (event) {
-      uploadedImage.src = event.target.result;
       const img = new Image();
       img.onload = function () {
+        // ปรับขนาด hiddenCanvas ให้เหมาะสมตามภาพ (ถ้าต้องการ)
         hiddenCanvas.width = img.width;
         hiddenCanvas.height = img.height;
         outputCanvas.width = img.width;
         outputCanvas.height = img.height;
 
+        // แสดงภาพ preview
+        uploadedImage.src = event.target.result;
+
         hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
-        hiddenCtx.drawImage(img, 0, 0);
+        hiddenCtx.drawImage(img, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
         originalImage = hiddenCtx.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
         drawPins();
       };
       img.src = event.target.result;
@@ -35,12 +39,11 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   function drawPins() {
+    ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     const pinCount = parseInt(document.getElementById("numPins").value);
     const cx = outputCanvas.width / 2;
     const cy = outputCanvas.height / 2;
     const radius = Math.min(cx, cy) - 10;
-
-    ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
 
     ctx.fillStyle = "#000";
     for (let i = 0; i < pinCount; i++) {
@@ -79,9 +82,9 @@ window.addEventListener("DOMContentLoaded", () => {
     return gray;
   }
 
-  function drawLine(x1, y1, x2, y2, color = "rgba(0,0,0,0.03)") {
+  function drawLine(x1, y1, x2, y2, color = "rgba(0,0,0,0.05)") {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
@@ -114,9 +117,17 @@ window.addEventListener("DOMContentLoaded", () => {
     ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     drawPins();
 
+    // เตรียม hidden canvas เป็นพื้นสีขาว
+    hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+    hiddenCtx.fillStyle = "white";
+    hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
+    let currentGray = new Float32Array(originalImage.width * originalImage.height);
+    for (let i = 0; i < currentGray.length; i++) currentGray[i] = 1; // เริ่มที่ขาวทั้งหมด
+
     const targetGray = getImageGrayscale(originalImage);
-    const current = new Float32Array(targetGray.length); // Start blank (all zeros)
-    let bestError = calculateError(targetGray, current);
+
+    let bestError = calculateError(targetGray, currentGray);
     let lines = [];
     let prevIndex = 0;
 
@@ -132,27 +143,23 @@ window.addEventListener("DOMContentLoaded", () => {
       for (let j = 0; j < pins.length; j++) {
         if (j === prevIndex) continue;
 
-        // Clear hidden canvas and draw white background
         hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.fillStyle = "white";
         hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
 
-        // Draw all existing lines on hidden canvas
         hiddenCtx.strokeStyle = "black";
         hiddenCtx.lineWidth = 1;
         hiddenCtx.beginPath();
-        lines.forEach(([from, to]) => {
+        for (const [from, to] of lines) {
           const [x1, y1] = pins[from];
           const [x2, y2] = pins[to];
           hiddenCtx.moveTo(x1, y1);
           hiddenCtx.lineTo(x2, y2);
-        });
-        // Add candidate line
+        }
         hiddenCtx.moveTo(...pins[prevIndex]);
         hiddenCtx.lineTo(...pins[j]);
         hiddenCtx.stroke();
 
-        // Get grayscale data from hidden canvas
         const sim = copyCanvasData(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
         const newError = calculateError(targetGray, sim);
         const delta = bestError - newError;
@@ -164,7 +171,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       if (bestLine !== null) {
-        drawLine(...pins[prevIndex], ...pins[bestLine]);
+        drawLine(...pins[prevIndex], ...pins[bestLine], "rgba(0,0,0,0.05)");
         lines.push([prevIndex, bestLine]);
         prevIndex = bestLine;
         bestError -= bestDelta;
