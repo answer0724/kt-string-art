@@ -1,192 +1,199 @@
-window.addEventListener("DOMContentLoaded", () => {
-  const imageUpload = document.getElementById("imageUpload");
-  const uploadedImage = document.getElementById("uploadedImage");
-  const generateBtn = document.getElementById("generateBtn");
-  const exportBtn = document.getElementById("exportBtn");
-  const outputCanvas = document.getElementById("outputCanvas");
-  const hiddenCanvas = document.getElementById("hiddenCanvas");
-  const ctx = outputCanvas.getContext("2d", { willReadFrequently: true });
-  const hiddenCtx = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+const imageInput = document.getElementById("imageInput");
+const imageCanvas = document.getElementById("imageCanvas");
+const stringArtCanvas = document.getElementById("stringArtCanvas");
+const ctxImage = imageCanvas.getContext("2d");
+const ctxArt = stringArtCanvas.getContext("2d");
 
-  let originalImage = null;
+const imageWidth = imageCanvas.width;
+const imageHeight = imageCanvas.height;
 
-  imageUpload.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+let imageData, grayData, edgeData;
+let pins = [];
+let lines = [];
 
-    const reader = new FileReader();
-    reader.onload = function (event) {
-      const img = new Image();
-      img.onload = function () {
-        // ปรับขนาด hiddenCanvas ให้เหมาะสมตามภาพ (ถ้าต้องการ)
-        hiddenCanvas.width = img.width;
-        hiddenCanvas.height = img.height;
-        outputCanvas.width = img.width;
-        outputCanvas.height = img.height;
+let animationRunning = false;
 
-        // แสดงภาพ preview
-        uploadedImage.src = event.target.result;
+function toGrayscale(data, width, height) {
+  const gray = new Uint8ClampedArray(width * height);
+  for (let i = 0; i < width * height; i++) {
+    const r = data[i * 4];
+    const g = data[i * 4 + 1];
+    const b = data[i * 4 + 2];
+    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+  return gray;
+}
 
-        hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
-        hiddenCtx.drawImage(img, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-        originalImage = hiddenCtx.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+function sobelEdgeDetection(gray, width, height) {
+  const kernelX = [
+    [-1, 0, 1],
+    [-2, 0, 2],
+    [-1, 0, 1],
+  ];
+  const kernelY = [
+    [-1, -2, -1],
+    [0, 0, 0],
+    [1, 2, 1],
+  ];
+  const edge = new Float32Array(width * height);
 
-        drawPins();
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  function drawPins() {
-    ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-    const pinCount = parseInt(document.getElementById("numPins").value);
-    const cx = outputCanvas.width / 2;
-    const cy = outputCanvas.height / 2;
-    const radius = Math.min(cx, cy) - 10;
-
-    ctx.fillStyle = "#000";
-    for (let i = 0; i < pinCount; i++) {
-      const angle = (2 * Math.PI * i) / pinCount;
-      const x = cx + radius * Math.cos(angle);
-      const y = cy + radius * Math.sin(angle);
-      ctx.beginPath();
-      ctx.arc(x, y, 2, 0, 2 * Math.PI);
-      ctx.fill();
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let gx = 0;
+      let gy = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const pixel = gray[(y + ky) * width + (x + kx)];
+          gx += kernelX[ky + 1][kx + 1] * pixel;
+          gy += kernelY[ky + 1][kx + 1] * pixel;
+        }
+      }
+      edge[y * width + x] = Math.sqrt(gx * gx + gy * gy);
     }
   }
 
-  function getPins(numPins) {
-    const pins = [];
-    const cx = outputCanvas.width / 2;
-    const cy = outputCanvas.height / 2;
-    const radius = Math.min(cx, cy) - 10;
-
-    for (let i = 0; i < numPins; i++) {
-      const angle = (2 * Math.PI * i) / numPins;
-      const x = cx + radius * Math.cos(angle);
-      const y = cy + radius * Math.sin(angle);
-      pins.push([x, y]);
-    }
-    return pins;
+  const maxEdge = Math.max(...edge);
+  for (let i = 0; i < edge.length; i++) {
+    edge[i] = (edge[i] / maxEdge) * 255;
   }
+  return edge;
+}
 
-  function getImageGrayscale(imageData) {
-    const gray = new Float32Array(imageData.width * imageData.height);
-    for (let i = 0; i < gray.length; i++) {
-      const r = imageData.data[i * 4];
-      const g = imageData.data[i * 4 + 1];
-      const b = imageData.data[i * 4 + 2];
-      gray[i] = (r + g + b) / 3 / 255;
-    }
-    return gray;
+function setupPins(numPins) {
+  pins = [];
+  const centerX = imageWidth / 2;
+  const centerY = imageHeight / 2;
+  const radius = Math.min(centerX, centerY) - 2;
+  for (let i = 0; i < numPins; i++) {
+    const angle = (2 * Math.PI * i) / numPins;
+    pins.push({
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle),
+    });
   }
+}
 
-  function drawLine(x1, y1, x2, y2, color = "rgba(0,0,0,0.05)") {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+function lineScore(pinA, pinB) {
+  const dx = pinB.x - pinA.x;
+  const dy = pinB.y - pinA.y;
+  const dist = Math.hypot(dx, dy);
+  const steps = Math.floor(dist);
+  let totalScore = 0;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = Math.floor(pinA.x + dx * t);
+    const y = Math.floor(pinA.y + dy * t);
+    const idx = y * imageWidth + x;
+
+    const edgeWeight = edgeData[idx] / 255;
+    const grayVal = grayData[idx] / 255;
+
+    // More weight for dark and edge pixels
+    const score = (1 - grayVal) * (1 + edgeWeight * 2);
+
+    totalScore += score;
   }
+  return totalScore / steps;
+}
 
-  function calculateError(original, current) {
-    let error = 0;
-    for (let i = 0; i < original.length; i++) {
-      error += Math.abs(original[i] - current[i]);
-    }
-    return error / original.length;
-  }
+function generateStringArt(numPins, maxLines, targetSimilarity) {
+  lines = [];
+  setupPins(numPins);
 
-  function copyCanvasData(ctx, width, height) {
-    const imageData = ctx.getImageData(0, 0, width, height);
-    return getImageGrayscale(imageData);
-  }
+  animationRunning = true;
+  ctxArt.clearRect(0, 0, imageWidth, imageHeight);
+  ctxArt.strokeStyle = "black";
+  ctxArt.lineWidth = 0.5;
 
-  generateBtn.addEventListener("click", () => {
-    if (!originalImage) {
-      alert("Please upload an image first.");
+  let iterations = 0;
+  let similarity = 0;
+
+  function step() {
+    if (iterations >= maxLines || similarity >= targetSimilarity) {
+      animationRunning = false;
+      alert(`Generation finished. Similarity: ${similarity.toFixed(2)}%`);
       return;
     }
-    const pinCount = parseInt(document.getElementById("numPins").value);
-    const maxLines = parseInt(document.getElementById("maxLines").value);
-    const targetSimilarity = parseInt(document.getElementById("targetSimilarity").value) / 100;
-    const pins = getPins(pinCount);
 
-    ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-    drawPins();
+    let bestScore = -Infinity;
+    let bestLine = null;
 
-    // เตรียม hidden canvas เป็นพื้นสีขาว
-    hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
-    hiddenCtx.fillStyle = "white";
-    hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+    for (let i = 0; i < numPins; i++) {
+      for (let j = i + 1; j < numPins; j++) {
+        if (lines.find(line => (line[0] === i && line[1] === j) || (line[0] === j && line[1] === i))) continue;
 
-    let currentGray = new Float32Array(originalImage.width * originalImage.height);
-    for (let i = 0; i < currentGray.length; i++) currentGray[i] = 1; // เริ่มที่ขาวทั้งหมด
-
-    const targetGray = getImageGrayscale(originalImage);
-
-    let bestError = calculateError(targetGray, currentGray);
-    let lines = [];
-    let prevIndex = 0;
-
-    function step(i) {
-      if (i >= maxLines || (1 - bestError) >= targetSimilarity) {
-        console.log("Generation finished");
-        return;
-      }
-
-      let bestLine = null;
-      let bestDelta = 0;
-
-      for (let j = 0; j < pins.length; j++) {
-        if (j === prevIndex) continue;
-
-        hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
-        hiddenCtx.fillStyle = "white";
-        hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
-
-        hiddenCtx.strokeStyle = "black";
-        hiddenCtx.lineWidth = 1;
-        hiddenCtx.beginPath();
-        for (const [from, to] of lines) {
-          const [x1, y1] = pins[from];
-          const [x2, y2] = pins[to];
-          hiddenCtx.moveTo(x1, y1);
-          hiddenCtx.lineTo(x2, y2);
-        }
-        hiddenCtx.moveTo(...pins[prevIndex]);
-        hiddenCtx.lineTo(...pins[j]);
-        hiddenCtx.stroke();
-
-        const sim = copyCanvasData(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
-        const newError = calculateError(targetGray, sim);
-        const delta = bestError - newError;
-
-        if (delta > bestDelta) {
-          bestDelta = delta;
-          bestLine = j;
+        const score = lineScore(pins[i], pins[j]);
+        if (score > bestScore) {
+          bestScore = score;
+          bestLine = [i, j];
         }
       }
-
-      if (bestLine !== null) {
-        drawLine(...pins[prevIndex], ...pins[bestLine], "rgba(0,0,0,0.05)");
-        lines.push([prevIndex, bestLine]);
-        prevIndex = bestLine;
-        bestError -= bestDelta;
-      }
-
-      requestAnimationFrame(() => step(i + 1));
     }
 
-    step(0);
-  });
+    if (!bestLine) {
+      animationRunning = false;
+      alert("No more lines to draw.");
+      return;
+    }
 
-  exportBtn.addEventListener("click", () => {
-    const link = document.createElement("a");
-    link.download = "string_art.png";
-    link.href = outputCanvas.toDataURL();
-    link.click();
-  });
+    lines.push(bestLine);
+
+    // Draw line
+    const p1 = pins[bestLine[0]];
+    const p2 = pins[bestLine[1]];
+    ctxArt.beginPath();
+    ctxArt.moveTo(p1.x, p1.y);
+    ctxArt.lineTo(p2.x, p2.y);
+    ctxArt.stroke();
+
+    iterations++;
+    similarity = (iterations / maxLines) * 100;
+
+    requestAnimationFrame(step);
+  }
+
+  step();
+}
+
+imageInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  const img = new Image();
+  img.onload = () => {
+    ctxImage.clearRect(0, 0, imageWidth, imageHeight);
+    ctxImage.drawImage(img, 0, 0, imageWidth, imageHeight);
+
+    const rawData = ctxImage.getImageData(0, 0, imageWidth, imageHeight);
+    imageData = rawData.data;
+    grayData = toGrayscale(imageData, imageWidth, imageHeight);
+    edgeData = sobelEdgeDetection(grayData, imageWidth, imageHeight);
+
+    ctxArt.clearRect(0, 0, imageWidth, imageHeight);
+    lines = [];
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+document.getElementById("generateBtn").addEventListener("click", () => {
+  if (animationRunning) {
+    alert("Animation is already running!");
+    return;
+  }
+  const numPins = parseInt(document.getElementById("numPins").value);
+  const maxLines = parseInt(document.getElementById("maxLines").value);
+  const targetSim = parseFloat(document.getElementById("targetSim").value);
+
+  if (!grayData || !edgeData) {
+    alert("Please upload an image first.");
+    return;
+  }
+
+  generateStringArt(numPins, maxLines, targetSim);
+});
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.download = "string_art.png";
+  link.href = stringArtCanvas.toDataURL("image/png");
+  link.click();
 });
