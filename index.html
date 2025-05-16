@@ -1,31 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>String Art Generator</title>
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>String Art Generator v0.2</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="container">
-        <div class="left-panel">
-            <h2>Upload Image</h2>
-            <input type="file" id="imageUpload" accept="image/*" />
-            <canvas id="hiddenCanvas" width="400" height="400" style="display:none;"></canvas>
-            <div id="originalPreview"></div>
-        </div>
-        <div class="right-panel">
-            <h2>String Art</h2>
-            <div class="controls">
-                <label>Number of Pins: <input type="number" id="numPins" value="100"/></label>
-                <label>Max Lines: <input type="number" id="maxLines" value="500"/></label>
-                <label>Target Similarity (%): <input type="number" id="targetSimilarity" value="90"/></label>
-                <button id="generateBtn">Generate</button>
-                <button id="exportBtn">Export</button>
-            </div>
-            <canvas id="outputCanvas" width="400" height="400"></canvas>
-        </div>
+  <div class="container">
+    <div class="left-panel">
+      <h2>Upload Image</h2>
+      <input type="file" id="imageUpload" accept="image/*" />
+      <img id="uploadedImage" alt="Uploaded Image Preview" />
     </div>
-    <script src="app.js"></script>
+    <div class="right-panel">
+      <h2>String Art</h2>
+      <label for="numPins">Number of Pins:</label>
+      <input type="number" id="numPins" value="100" min="10" max="500" />
+      <label for="maxLines">Max Lines:</label>
+      <input type="number" id="maxLines" value="500" min="10" max="10000" />
+      <label for="targetSimilarity">Target Similarity (%):</label>
+      <input type="number" id="targetSimilarity" value="90" min="10" max="100" />
+      <button id="generateBtn">Generate</button>
+      <button id="exportBtn">Export</button>
+      <canvas id="outputCanvas" width="400" height="400"></canvas>
+      <canvas id="hiddenCanvas" width="400" height="400" style="display:none;"></canvas>
+    </div>
+  </div>
+  <script src="app.js"></script>
 </body>
 </html>
