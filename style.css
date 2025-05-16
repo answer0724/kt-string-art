@@ -1,12 +1,10 @@
 body {
   font-family: sans-serif;
   text-align: center;
-  padding: 20px;
+  margin: 20px;
 }
+
 canvas {
-  border: 1px solid #ccc;
+  border: 1px solid #000;
   margin-top: 20px;
-}
-input, button {
-  margin: 5px;
 }

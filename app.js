@@ -6,7 +6,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const hiddenCanvas = document.getElementById("hiddenCanvas");
   const ctx = outputCanvas.getContext("2d", { willReadFrequently: true });
   const hiddenCtx = hiddenCanvas.getContext("2d", { willReadFrequently: true });
-
   let originalImage = null;
 
   imageUpload.addEventListener("change", (e) => {
@@ -101,21 +100,22 @@ window.addEventListener("DOMContentLoaded", () => {
     const pins = getPins(pinCount);
     ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     drawPins();
-
     const targetGray = getImageGrayscale(originalImage);
     const current = new Float32Array(targetGray.length);
     let bestError = calculateError(targetGray, current);
     let lines = [];
     let prevIndex = 0;
+    let i = 0;
 
-    function step(i) {
-      if (i >= maxLines || (1 - bestError) >= targetSimilarity) return;
+    function drawNextLine() {
+      if (i >= maxLines || (1 - bestError) >= targetSimilarity) {
+        console.log("Generation finished");
+        return;
+      }
       let bestLine = null;
       let bestDelta = 0;
-
       for (let j = 0; j < pins.length; j++) {
         if (j === prevIndex) continue;
-        hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.fillStyle = "white";
         hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.strokeStyle = "black";
@@ -138,17 +138,19 @@ window.addEventListener("DOMContentLoaded", () => {
           bestLine = j;
         }
       }
-
       if (bestLine !== null) {
-        drawLine(...pins[prevIndex], ...pins[bestLine]);
+        const [x1, y1] = pins[prevIndex];
+        const [x2, y2] = pins[bestLine];
+        drawLine(x1, y1, x2, y2);
         lines.push([prevIndex, bestLine]);
         prevIndex = bestLine;
         bestError -= bestDelta;
       }
-      requestAnimationFrame(() => step(i + 1));
+      i++;
+      setTimeout(() => requestAnimationFrame(drawNextLine), 10);
     }
 
-    step(0);
+    drawNextLine();
   });
 
   exportBtn.addEventListener("click", () => {
