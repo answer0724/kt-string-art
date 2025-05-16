@@ -1,46 +1,29 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>String Art Generator</title>
-  <style>
-    canvas {
-      border: 1px solid #ccc;
-      display: block;
-      margin: 20px auto;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <input type="file" id="uploadImage" accept="image/*" />
-  <canvas id="canvasOutput" width="400" height="400"></canvas>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const uploadImage = document.getElementById('uploadImage');
-      const canvas = document.getElementById('canvasOutput');
-      const ctx = canvas.getContext('2d');
-
-      uploadImage.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const img = new Image();
-        const reader = new FileReader();
-
-        reader.onload = (e) => {
-          img.onload = () => {
-            // ปรับขนาด canvas ตามขนาดภาพหรือคงขนาดเดิม
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-          };
-          img.src = e.target.result;
-        };
-
-        reader.readAsDataURL(file);
-      });
-    });
-  </script>
+  <h1>String Art Generator</h1>
+  <input type="file" id="imageUpload" accept="image/*" />
+  <div>
+    <label>Number of Pins:
+      <input type="number" id="numPins" value="200" min="10" max="500" />
+    </label>
+    <label>Max Lines:
+      <input type="number" id="maxLines" value="300" min="10" max="2000" />
+    </label>
+    <label>Target Similarity (%):
+      <input type="number" id="targetSimilarity" value="90" min="1" max="100" />
+    </label>
+    <button id="generateBtn">Generate</button>
+    <button id="exportBtn">Export</button>
+  </div>
+  <canvas id="outputCanvas" width="500" height="500"></canvas>
+  <canvas id="hiddenCanvas" width="500" height="500" style="display:none;"></canvas>
+  <script src="app.js"></script>
 </body>
 </html>
