@@ -3,75 +3,86 @@
 }
 
 body {
-  font-family: Arial, sans-serif;
-  background: #0a1626;
-  color: #ddd;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f0f2f5;
+  color: #222;
   margin: 0;
   padding: 20px;
   display: flex;
   justify-content: center;
-  height: 100vh;
-  align-items: center;
 }
 
 .container {
-  display: flex;
-  gap: 30px;
-  background: #112240;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 15px #1f3a5f;
+  max-width: 1100px;
+  width: 100%;
 }
 
-.left-panel, .right-panel {
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 25px;
+}
+
+.controls label {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 15px;
-}
-
-h2 {
-  margin: 0 0 10px 0;
-}
-
-input[type="file"] {
-  cursor: pointer;
-}
-
-label {
+  font-weight: 600;
   font-size: 14px;
 }
 
-input[type="number"] {
+.controls input[type="file"] {
+  margin-top: 5px;
+}
+
+.controls input[type="number"] {
   width: 80px;
-  margin-left: 10px;
-  padding: 4px 6px;
+  padding: 5px;
+  margin-top: 5px;
+  border: 1px solid #bbb;
   border-radius: 4px;
-  border: none;
-  font-size: 14px;
 }
 
-button {
-  background: #0f7cdb;
+.controls button {
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 15px;
   border: none;
-  color: white;
-  padding: 8px 15px;
   border-radius: 5px;
+  background-color: #007bff;
+  color: white;
   cursor: pointer;
-  font-size: 14px;
-  transition: background 0.3s ease;
-  margin-top: 10px;
+  transition: background-color 0.3s ease;
+  margin-top: 22px;
 }
 
-button:hover {
-  background: #0b5f9d;
+.controls button:hover {
+  background-color: #0056b3;
+}
+
+.canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.canvas-wrapper > div {
+  text-align: center;
 }
 
 canvas {
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 0 6px #083059;
-  width: 300px;
-  height: 300px;
-  image-rendering: pixelated;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: white;
+  box-shadow: 1px 1px 6px rgba(0,0,0,0.1);
+  margin-top: 8px;
+  max-width: 100%;
+  height: auto;
 }

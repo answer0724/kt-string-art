@@ -1,199 +1,197 @@
-const imageInput = document.getElementById("imageInput");
-const imageCanvas = document.getElementById("imageCanvas");
-const stringArtCanvas = document.getElementById("stringArtCanvas");
-const ctxImage = imageCanvas.getContext("2d");
-const ctxArt = stringArtCanvas.getContext("2d");
+const imageInput = document.getElementById('imageInput');
+const imageCanvas = document.getElementById('imageCanvas');
+const stringArtCanvas = document.getElementById('stringArtCanvas');
+const generateBtn = document.getElementById('generateBtn');
+const exportBtn = document.getElementById('exportBtn');
+const numPinsInput = document.getElementById('numPins');
+const maxLinesInput = document.getElementById('maxLines');
+const targetSimInput = document.getElementById('targetSim');
 
-const imageWidth = imageCanvas.width;
-const imageHeight = imageCanvas.height;
+const imageCtx = imageCanvas.getContext('2d');
+const artCtx = stringArtCanvas.getContext('2d');
 
-let imageData, grayData, edgeData;
+let grayscaleImageData = null;
 let pins = [];
 let lines = [];
 
-let animationRunning = false;
+imageInput.addEventListener('change', handleImageUpload);
+generateBtn.addEventListener('click', generateStringArt);
+exportBtn.addEventListener('click', exportStringArt);
 
-function toGrayscale(data, width, height) {
-  const gray = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
-  }
-  return gray;
+function handleImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const img = new Image();
+    img.onload = function() {
+      const size = 500;
+      imageCanvas.width = size;
+      imageCanvas.height = size;
+      stringArtCanvas.width = size;
+      stringArtCanvas.height = size;
+
+      imageCtx.clearRect(0, 0, size, size);
+      imageCtx.drawImage(img, 0, 0, size, size);
+
+      const imgData = imageCtx.getImageData(0, 0, size, size);
+      grayscaleImageData = toGrayscale(imgData);
+      imageCtx.putImageData(grayscaleImageData, 0, 0);
+
+      artCtx.clearRect(0, 0, size, size);
+      lines = [];
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
-function sobelEdgeDetection(gray, width, height) {
-  const kernelX = [
-    [-1, 0, 1],
-    [-2, 0, 2],
-    [-1, 0, 1],
-  ];
-  const kernelY = [
-    [-1, -2, -1],
-    [0, 0, 0],
-    [1, 2, 1],
-  ];
-  const edge = new Float32Array(width * height);
-
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      let gx = 0;
-      let gy = 0;
-      for (let ky = -1; ky <= 1; ky++) {
-        for (let kx = -1; kx <= 1; kx++) {
-          const pixel = gray[(y + ky) * width + (x + kx)];
-          gx += kernelX[ky + 1][kx + 1] * pixel;
-          gy += kernelY[ky + 1][kx + 1] * pixel;
-        }
-      }
-      edge[y * width + x] = Math.sqrt(gx * gx + gy * gy);
-    }
+function toGrayscale(imageData) {
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    data[i] = data[i + 1] = data[i + 2] = gray;
   }
-
-  const maxEdge = Math.max(...edge);
-  for (let i = 0; i < edge.length; i++) {
-    edge[i] = (edge[i] / maxEdge) * 255;
-  }
-  return edge;
+  return imageData;
 }
 
-function setupPins(numPins) {
-  pins = [];
-  const centerX = imageWidth / 2;
-  const centerY = imageHeight / 2;
-  const radius = Math.min(centerX, centerY) - 2;
+function createPins(numPins, radius, centerX, centerY) {
+  const pins = [];
   for (let i = 0; i < numPins; i++) {
     const angle = (2 * Math.PI * i) / numPins;
     pins.push({
       x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle),
+      y: centerY + radius * Math.sin(angle)
     });
   }
+  return pins;
 }
 
-function lineScore(pinA, pinB) {
-  const dx = pinB.x - pinA.x;
-  const dy = pinB.y - pinA.y;
-  const dist = Math.hypot(dx, dy);
-  const steps = Math.floor(dist);
-  let totalScore = 0;
-
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const x = Math.floor(pinA.x + dx * t);
-    const y = Math.floor(pinA.y + dy * t);
-    const idx = y * imageWidth + x;
-
-    const edgeWeight = edgeData[idx] / 255;
-    const grayVal = grayData[idx] / 255;
-
-    // More weight for dark and edge pixels
-    const score = (1 - grayVal) * (1 + edgeWeight * 2);
-
-    totalScore += score;
-  }
-  return totalScore / steps;
+function drawPins(ctx, pins) {
+  ctx.fillStyle = 'black';
+  pins.forEach(pin => {
+    ctx.beginPath();
+    ctx.arc(pin.x, pin.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 
-function generateStringArt(numPins, maxLines, targetSimilarity) {
-  lines = [];
-  setupPins(numPins);
+function drawPinsOnBothCanvases(pins) {
+  imageCtx.putImageData(grayscaleImageData, 0, 0);
+  drawPins(imageCtx, pins);
 
-  animationRunning = true;
-  ctxArt.clearRect(0, 0, imageWidth, imageHeight);
-  ctxArt.strokeStyle = "black";
-  ctxArt.lineWidth = 0.5;
-
-  let iterations = 0;
-  let similarity = 0;
-
-  function step() {
-    if (iterations >= maxLines || similarity >= targetSimilarity) {
-      animationRunning = false;
-      alert(`Generation finished. Similarity: ${similarity.toFixed(2)}%`);
-      return;
-    }
-
-    let bestScore = -Infinity;
-    let bestLine = null;
-
-    for (let i = 0; i < numPins; i++) {
-      for (let j = i + 1; j < numPins; j++) {
-        if (lines.find(line => (line[0] === i && line[1] === j) || (line[0] === j && line[1] === i))) continue;
-
-        const score = lineScore(pins[i], pins[j]);
-        if (score > bestScore) {
-          bestScore = score;
-          bestLine = [i, j];
-        }
-      }
-    }
-
-    if (!bestLine) {
-      animationRunning = false;
-      alert("No more lines to draw.");
-      return;
-    }
-
-    lines.push(bestLine);
-
-    // Draw line
-    const p1 = pins[bestLine[0]];
-    const p2 = pins[bestLine[1]];
-    ctxArt.beginPath();
-    ctxArt.moveTo(p1.x, p1.y);
-    ctxArt.lineTo(p2.x, p2.y);
-    ctxArt.stroke();
-
-    iterations++;
-    similarity = (iterations / maxLines) * 100;
-
-    requestAnimationFrame(step);
-  }
-
-  step();
+  artCtx.clearRect(0, 0, stringArtCanvas.width, stringArtCanvas.height);
+  drawPins(artCtx, pins);
 }
 
-imageInput.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  const img = new Image();
-  img.onload = () => {
-    ctxImage.clearRect(0, 0, imageWidth, imageHeight);
-    ctxImage.drawImage(img, 0, 0, imageWidth, imageHeight);
+function lineBrightnessSum(x0, y0, x1, y1, imageData) {
+  const data = imageData.data;
+  const width = imageData.width;
 
-    const rawData = ctxImage.getImageData(0, 0, imageWidth, imageHeight);
-    imageData = rawData.data;
-    grayData = toGrayscale(imageData, imageWidth, imageHeight);
-    edgeData = sobelEdgeDetection(grayData, imageWidth, imageHeight);
+  let dx = Math.abs(x1 - x0);
+  let dy = Math.abs(y1 - y0);
+  let sx = x0 < x1 ? 1 : -1;
+  let sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
 
-    ctxArt.clearRect(0, 0, imageWidth, imageHeight);
-    lines = [];
-  };
-  img.src = URL.createObjectURL(file);
-});
-
-document.getElementById("generateBtn").addEventListener("click", () => {
-  if (animationRunning) {
-    alert("Animation is already running!");
-    return;
+  let sum = 0;
+  while (true) {
+    if (x0 >= 0 && x0 < width && y0 >= 0 && y0 < imageData.height) {
+      const idx = (Math.floor(y0) * width + Math.floor(x0)) * 4;
+      sum += data[idx]; 
+    }
+    if (x0 === x1 && y0 === y1) break;
+    let e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x0 += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y0 += sy;
+    }
   }
-  const numPins = parseInt(document.getElementById("numPins").value);
-  const maxLines = parseInt(document.getElementById("maxLines").value);
-  const targetSim = parseFloat(document.getElementById("targetSim").value);
+  return sum;
+}
 
-  if (!grayData || !edgeData) {
+function generateStringArt() {
+  if (!grayscaleImageData) {
     alert("Please upload an image first.");
     return;
   }
 
-  generateStringArt(numPins, maxLines, targetSim);
-});
+  const numPins = parseInt(numPinsInput.value, 10);
+  const maxLines = parseInt(maxLinesInput.value, 10);
+  const targetSim = parseFloat(targetSimInput.value);
 
-document.getElementById("exportBtn").addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.download = "string_art.png";
-  link.href = stringArtCanvas.toDataURL("image/png");
+  const radius = stringArtCanvas.width / 2 - 10;
+  const centerX = stringArtCanvas.width / 2;
+  const centerY = stringArtCanvas.height / 2;
+  pins = createPins(numPins, radius, centerX, centerY);
+
+  drawPinsOnBothCanvases(pins);
+
+  lines = [];
+
+  let currentSim = 0;
+
+  for (let i = 0; i < maxLines; i++) {
+    let bestLine = null;
+    let bestScore = -Infinity;
+
+    for (let a = 0; a < pins.length; a++) {
+      for (let b = a + 1; b < pins.length; b++) {
+        if (lines.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a))) {
+          continue;
+        }
+        const sum = lineBrightnessSum(
+          pins[a].x, pins[a].y,
+          pins[b].x, pins[b].y,
+          grayscaleImageData
+        );
+
+        if (sum > bestScore) {
+          bestScore = sum;
+          bestLine = { a, b };
+        }
+      }
+    }
+
+    if (!bestLine) break;
+
+    lines.push(bestLine);
+
+    artCtx.strokeStyle = 'black';
+    artCtx.lineWidth = 1;
+    artCtx.beginPath();
+    artCtx.moveTo(pins[bestLine.a].x, pins[bestLine.a].y);
+    artCtx.lineTo(pins[bestLine.b].x, pins[bestLine.b].y);
+    artCtx.stroke();
+
+    currentSim = calculateSimilarity();
+    if (currentSim >= targetSim) break;
+  }
+
+  alert(`Generation finished. Similarity: ${currentSim.toFixed(2)}%`);
+}
+
+function calculateSimilarity() {
+  const artData = artCtx.getImageData(0, 0, stringArtCanvas.width, stringArtCanvas.height).data;
+  const originalData = grayscaleImageData.data;
+
+  let totalDiff = 0;
+  for (let i = 0; i < originalData.length; i += 4) {
+    totalDiff += Math.abs(originalData[i] - artData[i]);
+  }
+
+  const maxDiff = 255 * (originalData.length / 4);
+  return (1 - totalDiff / maxDiff) * 100;
+}
+
+function exportStringArt() {
+  const link = document.createElement('a');
+  link.download = 'string-art.png';
+  link.href = stringArtCanvas.toDataURL();
   link.click();
-});
+}
