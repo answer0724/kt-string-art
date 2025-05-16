@@ -1,41 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>String Art Generator</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>String Art Generator</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>String Art Generator</h1>
-
-    <div class="controls">
-      <input type="file" id="imageUpload" accept="image/*" />
-      <label>จำนวนหมุด:</label>
-      <input type="number" id="numPins" min="10" max="500" value="200" />
-      <label>จำนวนเส้นสูงสุด:</label>
-      <input type="number" id="maxLines" min="10" max="5000" value="300" />
-      <label>ความเหมือนเป้าหมาย (%):</label>
-      <input type="number" id="targetSimilarity" min="1" max="100" value="90" />
-      <button id="generateBtn">Generate</button>
-      <button id="exportBtn">Export</button>
+    <div class="container">
+        <div class="left-panel">
+            <h2>Upload Image</h2>
+            <input type="file" id="imageUpload" accept="image/*" />
+            <canvas id="hiddenCanvas" width="400" height="400" style="display:none;"></canvas>
+            <div id="originalPreview"></div>
+        </div>
+        <div class="right-panel">
+            <h2>String Art</h2>
+            <div class="controls">
+                <label>Number of Pins: <input type="number" id="numPins" value="100"/></label>
+                <label>Max Lines: <input type="number" id="maxLines" value="500"/></label>
+                <label>Target Similarity (%): <input type="number" id="targetSimilarity" value="90"/></label>
+                <button id="generateBtn">Generate</button>
+                <button id="exportBtn">Export</button>
+            </div>
+            <canvas id="outputCanvas" width="400" height="400"></canvas>
+        </div>
     </div>
-
-    <div class="canvas-area">
-      <div class="canvas-block">
-        <h2>Uploaded Image</h2>
-        <canvas id="uploadedImageCanvas" width="400" height="400"></canvas>
-      </div>
-      <div class="canvas-block">
-        <h2>String Art Preview</h2>
-        <canvas id="outputCanvas" width="400" height="400"></canvas>
-      </div>
-    </div>
-
-    <canvas id="hiddenCanvas" width="400" height="400" style="display: none;"></canvas>
-  </div>
-
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

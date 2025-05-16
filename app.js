@@ -1,13 +1,9 @@
 const imageUpload = document.getElementById("imageUpload");
 const generateBtn = document.getElementById("generateBtn");
 const exportBtn = document.getElementById("exportBtn");
-
 const outputCanvas = document.getElementById("outputCanvas");
-const uploadedImageCanvas = document.getElementById("uploadedImageCanvas");
 const hiddenCanvas = document.getElementById("hiddenCanvas");
-
 const ctx = outputCanvas.getContext("2d");
-const uploadedCtx = uploadedImageCanvas.getContext("2d");
 const hiddenCtx = hiddenCanvas.getContext("2d");
 
 let originalImage = null;
@@ -20,10 +16,19 @@ imageUpload.addEventListener("change", (e) => {
   reader.onload = function (event) {
     const img = new Image();
     img.onload = function () {
-      uploadedCtx.clearRect(0, 0, uploadedImageCanvas.width, uploadedImageCanvas.height);
-      uploadedCtx.drawImage(img, 0, 0, uploadedImageCanvas.width, uploadedImageCanvas.height);
+      hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
       hiddenCtx.drawImage(img, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
       originalImage = hiddenCtx.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
+      // Show preview
+      const preview = document.getElementById("originalPreview");
+      preview.innerHTML = "";
+      const canvas = document.createElement("canvas");
+      canvas.width = 200;
+      canvas.height = 200;
+      const previewCtx = canvas.getContext("2d");
+      previewCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      preview.appendChild(canvas);
     };
     img.src = event.target.result;
   };
@@ -32,9 +37,10 @@ imageUpload.addEventListener("change", (e) => {
 
 function drawPins(ctx, pinCount) {
   ctx.fillStyle = "#000";
-  const cx = ctx.canvas.width / 2;
-  const cy = ctx.canvas.height / 2;
+  const cx = outputCanvas.width / 2;
+  const cy = outputCanvas.height / 2;
   const radius = cx - 10;
+
   for (let i = 0; i < pinCount; i++) {
     const angle = (2 * Math.PI * i) / pinCount;
     const x = cx + radius * Math.cos(angle);
@@ -45,13 +51,14 @@ function drawPins(ctx, pinCount) {
   }
 }
 
-function getPins(pinCount) {
+function getPins(numPins) {
   const pins = [];
   const cx = outputCanvas.width / 2;
   const cy = outputCanvas.height / 2;
   const radius = cx - 10;
-  for (let i = 0; i < pinCount; i++) {
-    const angle = (2 * Math.PI * i) / pinCount;
+
+  for (let i = 0; i < numPins; i++) {
+    const angle = (2 * Math.PI * i) / numPins;
     const x = cx + radius * Math.cos(angle);
     const y = cy + radius * Math.sin(angle);
     pins.push([x, y]);
@@ -104,7 +111,7 @@ generateBtn.addEventListener("click", () => {
 
   const pins = getPins(pinCount);
   const targetGray = getImageGrayscale(originalImage);
-  const current = new Float32Array(targetGray.length);
+  const current = new Float32Array(targetGray.length).fill(1);
   let bestError = calculateError(targetGray, current);
   let lines = [];
   let prevIndex = 0;
@@ -112,30 +119,33 @@ generateBtn.addEventListener("click", () => {
   ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
   drawPins(ctx, pinCount);
 
-  function step(i) {
-    if (i >= maxLines || (1 - bestError) >= targetSimilarity) {
-      console.log("Finished generating.");
+  let stepCount = 0;
+
+  function step() {
+    if (stepCount >= maxLines || (1 - bestError) >= targetSimilarity) {
+      console.log("Done generating.");
       return;
     }
 
     let bestLine = null;
     let bestDelta = 0;
 
-    for (let j = 0; j < pins.length; j++) {
+    for (let j = 0; j < pinCount; j++) {
       if (j === prevIndex) continue;
 
       hiddenCtx.fillStyle = "white";
       hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
       hiddenCtx.strokeStyle = "black";
       hiddenCtx.lineWidth = 1;
-
       hiddenCtx.beginPath();
+
       lines.forEach(([from, to]) => {
         const [x1, y1] = pins[from];
         const [x2, y2] = pins[to];
         hiddenCtx.moveTo(x1, y1);
         hiddenCtx.lineTo(x2, y2);
       });
+
       hiddenCtx.moveTo(...pins[prevIndex]);
       hiddenCtx.lineTo(...pins[j]);
       hiddenCtx.stroke();
@@ -155,12 +165,12 @@ generateBtn.addEventListener("click", () => {
       lines.push([prevIndex, bestLine]);
       prevIndex = bestLine;
       bestError -= bestDelta;
+      stepCount++;
+      requestAnimationFrame(step);
     }
-
-    requestAnimationFrame(() => step(i + 1));
   }
 
-  step(0);
+  requestAnimationFrame(step);
 });
 
 exportBtn.addEventListener("click", () => {
