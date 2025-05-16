@@ -181,3 +181,4 @@ window.addEventListener("DOMContentLoaded", () => {
     link.href = outputCanvas.toDataURL();
     link.click();
   });
+});
