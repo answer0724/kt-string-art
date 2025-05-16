@@ -1,34 +1,46 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>String Art Generator</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>String Art Generator</title>
+  <style>
+    canvas {
+      border: 1px solid #ccc;
+      display: block;
+      margin: 20px auto;
+    }
+  </style>
 </head>
 <body>
-    <h1>String Art Generator</h1>
-    <div id="controls">
-        <label for="uploadImage">Upload Image:</label>
-        <input type="file" id="uploadImage" accept="image/*">
+  <input type="file" id="uploadImage" accept="image/*" />
+  <canvas id="canvasOutput" width="400" height="400"></canvas>
 
-        <label for="pinCount">Pins:</label>
-        <input type="number" id="pinCount" value="100" min="10">
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const uploadImage = document.getElementById('uploadImage');
+      const canvas = document.getElementById('canvasOutput');
+      const ctx = canvas.getContext('2d');
 
-        <label for="maxLines">Max Lines:</label>
-        <input type="number" id="maxLines" value="500" min="1">
+      uploadImage.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
 
-        <label for="targetSim">Target Similarity (0-1):</label>
-        <input type="number" id="targetSim" value="0.95" min="0" max="1" step="0.01">
+        const img = new Image();
+        const reader = new FileReader();
 
-        <button id="generateBtn">Generate</button>
-        <button id="exportBtn">Export PNG</button>
-    </div>
+        reader.onload = (e) => {
+          img.onload = () => {
+            // ปรับขนาด canvas ตามขนาดภาพหรือคงขนาดเดิม
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = e.target.result;
+        };
 
-    <canvas id="canvasOutput" width="400" height="400"></canvas>
-    <!-- Hidden canvas to store uploaded image -->
-    <canvas id="canvasHidden" width="400" height="400" style="display:none;"></canvas>
-
-    <script src="app.js"></script>
+        reader.readAsDataURL(file);
+      });
+    });
+  </script>
 </body>
 </html>
