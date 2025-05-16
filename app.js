@@ -15,7 +15,7 @@ let pins = [];
 let lines = [];
 
 imageInput.addEventListener('change', handleImageUpload);
-generateBtn.addEventListener('click', generateStringArt);
+generateBtn.addEventListener('click', () => generateStringArt().catch(console.error));
 exportBtn.addEventListener('click', exportStringArt);
 
 function handleImageUpload(e) {
@@ -115,7 +115,7 @@ function lineBrightnessSum(x0, y0, x1, y1, imageData) {
   return sum;
 }
 
-function generateStringArt() {
+async function generateStringArt() {
   if (!grayscaleImageData) {
     alert("Please upload an image first.");
     return;
@@ -134,6 +134,9 @@ function generateStringArt() {
 
   lines = [];
 
+  // สร้างชุดคู่ pin ที่ยังไม่เคยใช้ เพื่อคัดเลือกทีละเส้น
+  let usedPairs = new Set();
+
   let currentSim = 0;
 
   for (let i = 0; i < maxLines; i++) {
@@ -142,9 +145,9 @@ function generateStringArt() {
 
     for (let a = 0; a < pins.length; a++) {
       for (let b = a + 1; b < pins.length; b++) {
-        if (lines.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a))) {
-          continue;
-        }
+        const pairKey = `${a}-${b}`;
+        if (usedPairs.has(pairKey)) continue;
+
         const sum = lineBrightnessSum(
           pins[a].x, pins[a].y,
           pins[b].x, pins[b].y,
@@ -161,7 +164,9 @@ function generateStringArt() {
     if (!bestLine) break;
 
     lines.push(bestLine);
+    usedPairs.add(`${bestLine.a}-${bestLine.b}`);
 
+    // วาดเส้นทีละเส้นพร้อม animation
     artCtx.strokeStyle = 'black';
     artCtx.lineWidth = 1;
     artCtx.beginPath();
@@ -169,8 +174,15 @@ function generateStringArt() {
     artCtx.lineTo(pins[bestLine.b].x, pins[bestLine.b].y);
     artCtx.stroke();
 
+    // วาดหมุดใหม่ทุกครั้ง (ให้ตรงกับเส้นล่าสุด)
+    drawPins(artCtx, pins);
+
     currentSim = calculateSimilarity();
+
     if (currentSim >= targetSim) break;
+
+    // รอเพื่อแสดง animation (เช่น 10 ms)
+    await new Promise(resolve => setTimeout(resolve, 10));
   }
 
   alert(`Generation finished. Similarity: ${currentSim.toFixed(2)}%`);
