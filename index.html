@@ -2,25 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>String Art Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart String Art</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>String Art Generator</h1>
-  <input type="file" id="imageUpload" accept="image/*" />
-  <div>
-    <label for="numPins">Number of Pins:</label>
-    <input type="number" id="numPins" value="200" />
-    <label for="maxLines">Max Lines:</label>
-    <input type="number" id="maxLines" value="1000" />
-    <label for="targetSimilarity">Target Similarity (%):</label>
-    <input type="number" id="targetSimilarity" value="90" />
+  <div class="container">
+    <h1>Smart String Art Generator</h1>
+
+    <div class="controls">
+      <input type="file" id="imageUpload" accept="image/*" />
+
+      <label>
+        Number of Pins:
+        <input type="number" id="numPins" min="20" max="300" value="100" />
+      </label>
+
+      <label>
+        Max Lines:
+        <input type="number" id="maxLines" min="100" max="5000" value="1000" />
+      </label>
+
+      <label>
+        Target Similarity (%):
+        <input type="number" id="targetSimilarity" min="50" max="100" value="85" />
+      </label>
+
+      <button id="generateBtn">Generate</button>
+      <button id="exportBtn">Export PNG</button>
+    </div>
+
+    <canvas id="outputCanvas" width="600" height="600"></canvas>
+    <canvas id="hiddenCanvas" width="600" height="600" style="display:none;"></canvas>
   </div>
-  <button id="generateBtn">Generate</button>
-  <button id="exportBtn">Export</button>
-  <canvas id="outputCanvas" width="500" height="500"></canvas>
-  <canvas id="hiddenCanvas" width="500" height="500" style="display:none;"></canvas>
+
   <script src="app.js"></script>
 </body>
 </html>

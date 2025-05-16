@@ -6,11 +6,13 @@ window.addEventListener("DOMContentLoaded", () => {
   const hiddenCanvas = document.getElementById("hiddenCanvas");
   const ctx = outputCanvas.getContext("2d", { willReadFrequently: true });
   const hiddenCtx = hiddenCanvas.getContext("2d", { willReadFrequently: true });
+
   let originalImage = null;
 
   imageUpload.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = function (event) {
       const img = new Image();
@@ -18,6 +20,11 @@ window.addEventListener("DOMContentLoaded", () => {
         hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.drawImage(img, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
         originalImage = hiddenCtx.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
+        // Show uploaded image as background on outputCanvas
+        ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+        ctx.drawImage(img, 0, 0, outputCanvas.width, outputCanvas.height);
+
         drawPins();
       };
       img.src = event.target.result;
@@ -26,11 +33,11 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   function drawPins() {
-    ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     const pinCount = parseInt(document.getElementById("numPins").value);
     const cx = outputCanvas.width / 2;
     const cy = outputCanvas.height / 2;
     const radius = cx - 10;
+
     ctx.fillStyle = "#000";
     for (let i = 0; i < pinCount; i++) {
       const angle = (2 * Math.PI * i) / pinCount;
@@ -47,6 +54,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const cx = outputCanvas.width / 2;
     const cy = outputCanvas.height / 2;
     const radius = cx - 10;
+
     for (let i = 0; i < numPins; i++) {
       const angle = (2 * Math.PI * i) / numPins;
       const x = cx + radius * Math.cos(angle);
@@ -98,59 +106,73 @@ window.addEventListener("DOMContentLoaded", () => {
     const maxLines = parseInt(document.getElementById("maxLines").value);
     const targetSimilarity = parseInt(document.getElementById("targetSimilarity").value) / 100;
     const pins = getPins(pinCount);
+
     ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+    // วาดรูปพื้นหลังจาก hiddenCanvas เพื่อให้ยังเห็นภาพอัปโหลด
+    ctx.putImageData(originalImage, 0, 0);
+
     drawPins();
+
     const targetGray = getImageGrayscale(originalImage);
-    const current = new Float32Array(targetGray.length);
+    const current = new Float32Array(targetGray.length); // Start blank (all zeros)
     let bestError = calculateError(targetGray, current);
     let lines = [];
     let prevIndex = 0;
-    let i = 0;
 
-    function drawNextLine() {
+    function step(i) {
       if (i >= maxLines || (1 - bestError) >= targetSimilarity) {
         console.log("Generation finished");
         return;
       }
+
       let bestLine = null;
       let bestDelta = 0;
+
       for (let j = 0; j < pins.length; j++) {
         if (j === prevIndex) continue;
+
+        hiddenCtx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         hiddenCtx.fillStyle = "white";
         hiddenCtx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
         hiddenCtx.strokeStyle = "black";
         hiddenCtx.lineWidth = 1;
         hiddenCtx.beginPath();
+
+        // วาดเส้นที่เคยมีใน hiddenCtx
         lines.forEach(([from, to]) => {
           const [x1, y1] = pins[from];
           const [x2, y2] = pins[to];
           hiddenCtx.moveTo(x1, y1);
           hiddenCtx.lineTo(x2, y2);
         });
+
+        // วาดเส้น candidate
         hiddenCtx.moveTo(...pins[prevIndex]);
         hiddenCtx.lineTo(...pins[j]);
         hiddenCtx.stroke();
+
         const sim = copyCanvasData(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
         const newError = calculateError(targetGray, sim);
         const delta = bestError - newError;
+
         if (delta > bestDelta) {
           bestDelta = delta;
           bestLine = j;
         }
       }
+
       if (bestLine !== null) {
-        const [x1, y1] = pins[prevIndex];
-        const [x2, y2] = pins[bestLine];
-        drawLine(x1, y1, x2, y2);
+        drawLine(...pins[prevIndex], ...pins[bestLine]);
         lines.push([prevIndex, bestLine]);
         prevIndex = bestLine;
         bestError -= bestDelta;
       }
-      i++;
-      setTimeout(() => requestAnimationFrame(drawNextLine), 10);
+
+      requestAnimationFrame(() => step(i + 1));
     }
 
-    drawNextLine();
+    step(0);
   });
 
   exportBtn.addEventListener("click", () => {
@@ -159,4 +181,3 @@ window.addEventListener("DOMContentLoaded", () => {
     link.href = outputCanvas.toDataURL();
     link.click();
   });
-});
